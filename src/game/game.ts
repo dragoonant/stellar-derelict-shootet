@@ -10,7 +10,7 @@ import { ICHOR, disposeObject } from './bugRig'
 import { Fx } from './fx'
 import { Hud, type RadarDot } from './hud'
 import { Input, type Actions } from './input'
-import { Models, SQUAD, Warden, type SquadCtx } from './squad'
+import { Models, SQUAD, WARDEN_HP, Warden, type SquadCtx } from './squad'
 import { ARENA_RADIUS, BURROWS, PAD, PAD_RADIUS, buildWorld, groundAt, type World } from './world'
 
 export interface WeaponDef {
@@ -36,6 +36,10 @@ const G = 22
 const EYE = 1.7
 const BLAST_RADIUS = 7
 const BLAST_DAMAGE = 150
+/** the suit reseals itself up to this much, after a quiet spell */
+const REGEN_TO = 60
+const REGEN_DELAY = 5
+const REGEN_RATE = 4
 
 export type Mode = 'title' | 'playing' | 'paused' | 'dead' | 'won'
 type Phase = 'intermission' | 'wave' | 'extract'
@@ -99,6 +103,7 @@ export class Game {
   }
   private readonly vel = new Vector3()
   private bob = 0
+  private quietT = 0
   private stepT = 0
   private weapon = 0
   private ammo = WEAPONS.map((w) => ({ mag: w.mag, reserve: w.reserve }))
@@ -253,7 +258,8 @@ export class Game {
       this.player.hp = Math.min(PLAYER_HP, this.player.hp + 40)
       this.ammo.forEach((a, i) => (a.reserve = (WEAPONS[i] as WeaponDef).reserve))
       this.grenadeCount = GRENADES
-      this.hud.feed('Resupplied: suit patched, ammunition and grenades full')
+      for (const w of this.wardens) if (w.alive) w.hp = Math.min(WARDEN_HP, w.hp + 50)
+      this.hud.feed('Resupplied: suits patched, ammunition and grenades full')
     }
     this.storageError = writeSave(localStorage, this.snapshot())
     this.hud.notice(this.storageError)
@@ -374,6 +380,7 @@ export class Game {
     const p = this.player
     if (!p.alive || this.god || this.mode !== 'playing') return
     p.hp = Math.max(0, p.hp - amount)
+    this.quietT = 0
     this.hud.hurt()
     this.audio.play('hurt', 0, 0.3)
     if (p.hp === 0) {
@@ -668,6 +675,9 @@ export class Game {
     const gun = this.guns[this.weapon] as Group
     gun.position.set(0.2 + Math.cos(this.bob * 0.5) * 0.006, -0.2 + Math.sin(this.bob) * 0.006 - (this.reloadT > 0 ? 0.1 : 0), -0.6 + this.kick * 0.05)
     gun.rotation.x = this.kick * 0.1 - (this.reloadT > 0 ? 0.5 : 0)
+
+    this.quietT += dt
+    if (this.quietT > REGEN_DELAY && p.hp < REGEN_TO) p.hp = Math.min(REGEN_TO, p.hp + REGEN_RATE * dt)
 
     // weapons
     this.fireT -= dt

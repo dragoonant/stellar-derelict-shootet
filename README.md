@@ -20,6 +20,7 @@ An original game by evilgouki. Unofficial, non-commercial, no publisher's names,
 | Reload, change weapon | R; Q, wheel, 1, 2 | RELOAD, SWAP |
 | Pause, mute | P or Esc; M | II |
 
+The suit reseals itself to 60 after five quiet seconds, and every cleared wave patches suits and refills ammunition.
 The game saves at the start of every wave; **Continue** on the title returns to the start of that wave with the squad,
 suit, ammunition and score as they stood.
 

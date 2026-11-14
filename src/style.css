@@ -124,11 +124,11 @@ button:disabled { opacity: 0.5; cursor: default; }
 #tb-grenade { right: 46px; bottom: 202px; }
 #tb-jump { right: 206px; bottom: 80px; }
 #tb-pause { right: 12px; top: 10px; width: 44px; height: 44px; }
-.touch #ammo { bottom: 18px; right: 132px; }
+.touch #ammo { bottom: 8px; right: auto; left: 50%; transform: translateX(-50%); text-align: center; }
 .touch #feed { top: 62px; right: 64px; }
 .touch #radar { bottom: auto; top: 118px; width: 96px; height: 96px; }
 .touch #top { font-size: 16px; gap: 14px; }
 @media (max-height: 480px) {
-  #squad { font-size: 10px; } #squad .n { width: 70px; } #squad .bar { width: 44px; }
+  #squad { font-size: 10px; } #squad .n { width: 78px; white-space: nowrap; } #squad .bar { width: 44px; }
   #banner { top: 16%; } .bar.big { width: 130px; } #hp { font-size: 20px; } #rounds { font-size: 28px; }
 }
