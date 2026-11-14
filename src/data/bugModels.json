@@ -1,0 +1,10 @@
+{
+  "note": "One entry per caste: null uses the stand-in rig built in src/game/bugRig.ts; { \"file\": \"bug-reaver.glb\", \"scale\": 1 } loads public/assets/models/<file>. See HANDOFF-GPU.md for what the model must contain.",
+  "models": {
+    "reaver": null,
+    "lobber": null,
+    "skirr": null,
+    "bulwark": null,
+    "augur": null
+  }
+}
