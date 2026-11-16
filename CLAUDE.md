@@ -27,4 +27,7 @@ Credit the owner as **evilgouki**; never write a real name, email or home path a
 
 - Playwright is pinned to 1.63.0 to match the container's Chromium in `/opt/pw-browsers`; never run `playwright install` here.
 - `window.__bf` is the game object: tests and `tools/*.mjs` drive it (`spawn`, `aimAt`, `fire(false)`, `explode`, `skipToWave`, `god`).
-- No GPU in the cloud: new figures and audio wait for a GPU PC session.
+- No GPU in the cloud: new 3D models wait for a GPU PC session. Textures (Flux via the Hugging Face router) and audio
+  (ElevenLabs) are generated from the cloud by the scripts in `tools/`; the keys are network secrets the proxy injects
+  for `router.huggingface.co` and `api.elevenlabs.io`, so the scripts send a placeholder.
+- Owner, 2026-11-16: wants moving models, not static figures, and a real model holding the gun in first person.

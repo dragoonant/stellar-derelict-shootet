@@ -107,6 +107,7 @@ $('btn-how').addEventListener('click', () => {
 $('title').addEventListener('pointerdown', () => {
   game.audio.unlock()
   game.audio.setMusic('title')
+  game.audio.voice('comms-title')
 }, { once: true })
 
 // pause

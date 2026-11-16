@@ -1,30 +1,38 @@
-// Sound: the effects, music and squad voices generated for Stellar Derelict, reused here. Not verified by ear in this
-// game yet (KB rule 9). A missing or undecodable file is skipped with one console warning; nothing is synthesised.
+// Sound: effects, music and squad voices generated with ElevenLabs for this game (tools/gen-sfx.sh, gen-voice.sh,
+// gen-music.sh, levelled by tools/pack-audio.sh). Not verified by ear yet (KB rule 9). A missing or undecodable file
+// is skipped with one console warning; nothing is synthesised.
 const SFX: Record<string, string[]> = {
-  shot: ['repeater-shot-1', 'repeater-shot-2', 'repeater-shot-3'],
-  hit: ['repeater-hit-1', 'repeater-hit-2'],
-  scorch: ['scorch-1', 'scorch-2'],
-  claw: ['melee-hit-1', 'melee-hit-2', 'melee-hit-3'],
-  blast: ['maul'],
-  hurt: ['breach'],
-  down: ['warden-down'],
-  screech: ['stalker-screech-1', 'stalker-screech-2', 'stalker-screech-3'],
-  death: ['stalker-death-1', 'stalker-death-2', 'stalker-death-3'],
-  skitter: ['skitter-1', 'skitter-2', 'skitter-3'],
-  step: ['footstep-1', 'footstep-2', 'footstep-3'],
-  alarm: ['alarm'],
-  lifter: ['purge'],
-  reload: ['watch-set'],
-  empty: ['ui-deny'],
+  shot: ['shot-1', 'shot-2', 'shot-3'],
+  scatter: ['scatter'],
+  pump: ['pump'],
+  hit: ['hit-1', 'hit-2'],
+  sever: ['sever-1', 'sever-2'],
+  scorch: ['flame'],
+  claw: ['claw'],
+  blast: ['blast'],
+  hurt: ['hurt'],
+  down: ['down'],
+  screech: ['screech-1', 'screech-2'],
+  death: ['death-1', 'death-2'],
+  skitter: ['skitter'],
+  wings: ['wings'],
+  augur: ['augur'],
+  step: ['step-1', 'step-2'],
+  alarm: ['siren'],
+  lifter: ['lifter'],
+  reload: ['reload'],
+  empty: ['empty'],
   swap: ['ui-arm'],
   select: ['ui-select'],
   confirm: ['ui-confirm'],
-  win: ['sting-win'],
-  loss: ['sting-loss'],
-  wave: ['phase-molt'],
-  spit: ['vent'],
+  spit: ['spit'],
+  splash: ['splash'],
+  spray: ['spray'],
 }
-const GAIN: Record<string, number> = { shot: 0.5, hit: 0.5, step: 0.25, skitter: 0.3, screech: 0.5, death: 0.6, claw: 0.7, alarm: 0.5, lifter: 0.7, spit: 0.4 }
+const GAIN: Record<string, number> = {
+  shot: 0.42, scatter: 0.7, pump: 0.45, hit: 0.4, sever: 0.75, step: 0.22, skitter: 0.3, screech: 0.45, death: 0.6, claw: 0.7, alarm: 0.4, lifter: 0.8,
+  spit: 0.5, splash: 0.6, spray: 0.45, wings: 0.4, augur: 0.9, blast: 1, scorch: 0.5, reload: 0.5, hurt: 0.7, down: 0.7,
+}
 export type MusicState = 'title' | 'tense' | 'battle' | 'alarm' | 'victory' | 'defeat'
 const MUTE_KEY = 'sds-bugfront-mute'
 
@@ -58,7 +66,9 @@ export class Audio {
     this.master = this.ctx.createGain()
     this.master.gain.value = this.muted ? 0 : 0.8
     this.master.connect(this.ctx.destination)
-    for (const id of ['shot', 'hit', 'claw', 'death', 'screech']) for (const f of SFX[id] ?? []) void this.load('sfx/' + f)
+    for (const id of ['shot', 'hit', 'sever', 'claw', 'death', 'screech', 'scatter', 'blast']) for (const f of SFX[id] ?? []) void this.load('sfx/' + f)
+    // the desert wind runs under everything
+    void this.load('sfx/wind').then((b) => b && this.start(b, 0.16, 1, true))
     if (this.wantMusic) this.setMusic(this.wantMusic)
   }
 
@@ -126,7 +136,7 @@ export class Audio {
   voice(id: string): void {
     if (!this.ctx) return
     const now = this.ctx.currentTime
-    if (now - (this.last.get('voice') ?? -99) < 3.5) return
+    if (now - (this.last.get('voice') ?? -99) < 3) return
     this.last.set('voice', now)
     void this.load('voice/' + id).then((b) => b && this.start(b, 0.9, 1, false))
   }

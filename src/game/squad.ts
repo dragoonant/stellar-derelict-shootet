@@ -120,6 +120,8 @@ function standIn(): Object3D {
 
 export interface SquadCtx {
   bugs: Bug[]
+  /** a Warden calls out (the id of a voice line) */
+  say(line: string): void
   /** during the extraction the squad runs for the pad */
   extract: boolean
   /** deal damage to a bug part; `from` is the muzzle */
@@ -241,7 +243,9 @@ export class Warden implements Target {
     this.replan -= dt
     if (this.replan <= 0) {
       this.replan = ctx.extract ? 0.3 : 2 + Math.random() * 1.5
+      const before = this.goal.clone()
       this.plan()
+      if (!ctx.extract && before.distanceTo(this.goal) > 6 && Math.random() < 0.25) ctx.say(`${this.def.id}-move`)
     }
     // walk to the goal, round the comms hut
     let mx = this.goal.x - this.pos.x

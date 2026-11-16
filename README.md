@@ -36,14 +36,21 @@ suit, ammunition and score as they stood.
 
 All of it is data in `src/sim/castes.ts` and rules in `src/sim/damage.ts`.
 
-## State (2026-11-14, first playable)
+## State (2026-11-16, art and sound pass)
 
 - Playable start to finish: title, three difficulties, six waves, extraction, win and loss screens, save and Continue.
-- Squad: the five Warden figures from Stellar Derelict, firing from fixed posts (the figures are fixed-pose).
-- **The Molt are stand-in rigs built from primitives.** The owner chose to wait for generated, segmented models; the
-  loader for them is in place (`HANDOFF-GPU.md`, `src/data/bugModels.json`).
-- Sound is reused from Stellar Derelict and is **not verified by ear** in this game.
-- Not built yet: more maps, a mission with objectives, weapon pickups, squad orders, moving squadmates.
+- **Squad:** the five Warden figures from Stellar Derelict, skinned in code (`src/game/wardenRig.ts`) so they walk,
+  lean into the aim and move along the wall to face the threat, and run for the lifter. It is a puppet (legs and
+  torso), not a full character rig.
+- **First person:** armoured arms on the Repeater and the Scattergun, modelled in code (`src/game/viewModel.ts`).
+- **Textures and title poster:** FLUX.1 schnell through the Hugging Face router (`tools/gen-textures.sh`,
+  prompts in `tools/textures.tsv`, originals in `art/flux/`).
+- **Sound:** 31 effects, 27 voice lines (the Stellar Derelict voices on the owner's ElevenLabs account) and 6 music
+  tracks from ElevenLabs (`tools/gen-sfx.sh`, `gen-voice.sh`, `gen-music.sh`; originals in `art/eleven/`; levelled by
+  `tools/pack-audio.sh`). **Not verified by ear.**
+- **The Molt are still stand-in rigs built from primitives**, now textured. Generated, segmented models need a GPU
+  session (`HANDOFF-GPU.md`, `src/data/bugModels.json`); no hosted image-to-3D service was reachable from the cloud.
+- Not built yet: more maps, a mission with objectives, weapon pickups, squad orders.
 
 ## Commands
 
@@ -54,6 +61,8 @@ All of it is data in `src/sim/castes.ts` and rules in `src/sim/damage.ts`.
 | `npm test` | Vitest unit tests (sim rules, save, rigs) |
 | `npm run e2e` | Playwright against a production build (port `PW_PORT`, default 5361) |
 | `npm run build` | Production build in `dist/` |
+| `tools/gen-textures.sh`, `tools/pack-textures.py` | Flux textures: generate, then size into `public/assets/tex/` |
+| `tools/gen-sfx.sh`, `gen-voice.sh`, `gen-music.sh`, `pack-audio.sh` | ElevenLabs audio: generate, then level into `public/assets/audio/` |
 | `node tools/bot.mjs [recruit\|regular\|veteran] [url]` | A bot plays a whole deployment through the page and logs it |
 | `node tools/closeup.mjs <out dir> [url]` | Close-up screenshots of each caste's rig |
 

@@ -1,0 +1,32 @@
+# id	seconds	influence	prompt
+shot-1	0.8	0.6	one heavy twin-barrel autocannon round fired outdoors in open desert, dry punchy crack, short rolling echo, no music, no voices
+shot-2	0.8	0.6	a single loud heavy machine gun shot outdoors, sharp transient, low thump, brief open-air tail, no music, no voices
+shot-3	0.8	0.6	one large calibre rifle shot in a wide open canyon, hard crack and a quick slap-back echo, no music, no voices
+scatter	1.4	0.6	a huge combat shotgun blast outdoors, deep boom with a metallic ring and open-air echo, no music, no voices
+pump	0.8	0.7	a heavy pump-action shotgun being racked, two solid mechanical clacks, no music, no voices
+reload	1.6	0.7	a soldier swapping a heavy drum magazine on a machine gun: release click, drum sliding out, new drum locking in, bolt snapping forward, no music, no voices
+blast	2.5	0.5	a frag grenade exploding on open desert ground, sharp crack then a deep boom, debris and sand raining down, no music, no voices
+sever-1	1.0	0.6	a large insect limb being torn off, wet crunch of cracking shell and a splatter of thick fluid, no music, no voices
+sever-2	1.0	0.6	brittle carapace snapping and tearing with a juicy squelch, close up, no music, no voices
+hit-1	0.6	0.6	a bullet punching through hard insect shell into wet flesh, short thwack and squish, no music, no voices
+hit-2	0.6	0.6	a heavy slug smacking into a giant bug carapace, crack and wet splat, very short, no music, no voices
+screech-1	1.5	0.5	a giant insect monster shrieking as it charges, rising rasping screech with rapid clicking, no music, no voices
+screech-2	1.5	0.5	a huge alien bug war cry, harsh chittering hiss rising into a piercing squeal, no music, no voices
+death-1	1.6	0.5	a giant insect dying, gurgling shriek cut short, shell collapsing with a wet thud, no music, no voices
+death-2	1.6	0.5	a large alien bug bursting apart, wet pop, hiss of escaping fluid, twitching clicks fading, no music, no voices
+spit	1.0	0.6	a creature hawking and launching a thick glob of acid, wet throaty whoosh, no music, no voices
+splash	1.2	0.6	a big glob of acid splattering on sand and sizzling, wet slap and fizzing hiss, no music, no voices
+spray	1.5	0.5	a pressurised jet of corrosive liquid spraying, loud wet hiss and sizzle, no music, no voices
+wings	2.0	0.5	enormous insect wings buzzing past overhead, deep fast fluttering drone with doppler, no music, no voices
+augur	3.5	0.4	a colossal alien brain creature bellowing, deep subsonic moan with layered wet clicks and an eerie resonant psychic hum, no music, no voices
+lifter	5.0	0.4	a heavy military dropship descending to land, roaring twin jet turbines, rumbling thrust and blown sand, no music, no voices
+flame	2.0	0.5	a military flamethrower burst outdoors, roaring whoosh of burning fuel with a crackling tail, no music, no voices
+claw	0.9	0.6	sharp chitin claws slashing across metal armour plate, screech of scraped metal and a heavy impact, no music, no voices
+hurt	0.9	0.6	armour plating struck hard and cracking, a muffled grunt inside a helmet, short suit alarm beep, no music, no voices
+down	2.0	0.5	a soldier in heavy armour collapsing onto sand, clatter of gear, a flatline tone cut short, no music, no voices
+step-1	0.5	0.7	one heavy armoured boot step on dry sand and gravel, crunch with a faint servo whine, no music, no voices
+step-2	0.5	0.7	a single heavy boot footstep crunching on gritty desert ground, no music, no voices
+skitter	2.0	0.5	many giant insect legs scuttling fast across dry sand and rock, rapid hard tapping getting closer, no music, no voices
+siren	3.0	0.5	a military outpost attack warning siren outdoors, three rising electronic wails, no music, no voices
+empty	0.5	0.7	a dry click of an empty gun trigger, no music, no voices
+wind	10.0	0.3	steady desert wind across an open plain, low moan with fine sand hissing, calm ambience loop, no music, no voices

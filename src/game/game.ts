@@ -91,6 +91,7 @@ export class Game {
   private readonly ray = new Raycaster()
   private frame = 0
   private shipT = 0
+  private landed = false
   private storageError: string | null = null
 
   // the player
@@ -255,7 +256,8 @@ export class Game {
     this.audio.setMusic('tense')
     const alive = this.wardens.filter((w) => w.alive)
     const who = alive[Math.floor(Math.random() * alive.length)]
-    if (who) this.audio.voice(`${who.def.id}-watch-set`)
+    if (wave > 0 && this.wardens[0]?.alive) this.audio.voice('venn-clear')
+    void who
   }
 
   private beginWave(): void {
@@ -263,11 +265,12 @@ export class Game {
     this.queue = waveQueue(this.wave, this.difficulty, this.seed)
     this.spawnT = 0
     this.audio.play('alarm')
-    this.audio.play('wave')
     this.audio.setMusic(this.wave === WAVES.length - 1 ? 'alarm' : 'battle')
     const alive = this.wardens.filter((w) => w.alive)
     const who = alive[Math.floor(Math.random() * alive.length)]
-    if (who) this.audio.voice(`${who.def.id}-revealed`)
+    if (this.wave === WAVES.length - 1 && this.wardens[0]?.alive) this.audio.voice('venn-augur')
+    else if (who && Math.random() < 0.7) this.audio.voice(`${who.def.id}-contact`)
+    else this.audio.voice('comms-wave')
   }
 
   private beginExtract(): void {
@@ -277,13 +280,14 @@ export class Game {
     this.world.dropship.visible = true
     this.hud.banner('THE LIFTER IS INBOUND', 'The Augur is dead. Get to the landing pad through the east gate.', 8)
     this.audio.setMusic('battle')
+    this.audio.voice(this.wardens[0]?.alive ? 'venn-extract' : 'comms-lifter')
+    this.landed = false
   }
 
   private finish(won: boolean): void {
     this.player.alive = won
     this.input.unlock()
     this.audio.setMusic(won ? 'victory' : 'defeat')
-    this.audio.play(won ? 'win' : 'loss')
     if (won) clearSave(localStorage)
     this.setMode(won ? 'won' : 'dead')
   }
@@ -306,7 +310,7 @@ export class Game {
     bug.yaw = Math.atan2(-p.x, -p.z)
     this.world.scene.add(bug.rig.root)
     this.bugs.push(bug)
-    this.audio.play('screech', bug.pos.distanceTo(this.player.pos) * 0.4, 1.2)
+    this.audio.play(caste === 'augur' ? 'augur' : 'screech', caste === 'augur' ? 0 : bug.pos.distanceTo(this.player.pos) * 0.4, 1.2)
     return bug
   }
 
@@ -329,6 +333,12 @@ export class Game {
       }
       this.severed++
       this.score += 25
+      this.audio.play('sever', far * 0.7, 0.08)
+      if (!byPlayer && Math.random() < 0.12) {
+        const alive = this.wardens.filter((w) => w.alive)
+        const who = alive[Math.floor(Math.random() * alive.length)]
+        if (who) this.audio.voice(`${who.def.id}-sever`)
+      }
       if (def) this.hud.feed(`${bug.caste.name}: ${def.label} off`, 'sever')
       if (bug.caste.id === 'augur' && !abilities(bug.state).link && bug.state.alive && def?.kind === 'feeler') {
         this.hud.banner('THE LINK IS CUT', 'The swarm has lost the Augur\'s push.', 4)
@@ -382,6 +392,7 @@ export class Game {
     return {
       bugs: this.bugs,
       extract: this.phase === 'extract',
+      say: (line) => this.audio.voice(line),
       shoot: (w, bug, part, damage, from, hit) => {
         bug.partPoint(part, at)
         dir.copy(at).sub(from).normalize()
@@ -396,13 +407,13 @@ export class Game {
         this.fx.burst(from, 0xff8a1e, 5, 15, d, -0.05, 0.55)
         this.fx.burst(from, 0xffd24a, 2, 13, d, -0.05, 0.4)
         this.audio.play('scorch', from.distanceTo(this.player.pos), 0.9)
-        if (Math.random() < 0.004) this.audio.voice('riedel-scorched')
+        if (Math.random() < 0.004) this.audio.voice('riedel-sever')
       },
       wounded: (w, amount) => {
         const p = w.pos.clone().setY(1.2)
         this.fx.burst(p, BLOOD, 6 + Math.min(14, amount), 4, undefined, 1, 0.7)
         if (Math.random() < 0.3) this.fx.stain(w.pos.x + Math.random() - 0.5, w.pos.z + Math.random() - 0.5, BLOOD, 0.5)
-        if (w.hp > 0 && w.hp < 60 && w.hp + amount >= 60) this.audio.voice(`${w.def.id}-breached`)
+        if (w.hp > 0 && w.hp < 60 && w.hp + amount >= 60) this.audio.voice(`${w.def.id}-wounded`)
         this.hud.squad(this.wardens)
       },
       fell: (w) => {
@@ -436,7 +447,7 @@ export class Game {
       },
       spray: (from, dir, damage, range) => {
         this.fx.burst(from, ICHOR, 7, 15, dir, 0.25, 0.6)
-        this.audio.play('spit', from.distanceTo(this.player.pos), 0.3)
+        this.audio.play('spray', from.distanceTo(this.player.pos), 0.9)
         const v = new Vector3()
         for (const t of targets) {
           if (!t.alive) continue
@@ -542,7 +553,8 @@ export class Game {
     this.kick = Math.min(1, this.kick + (w.pellets > 1 ? 1 : 0.35))
     if (w.pellets > 1) this.pumpT = 0.55
     this.flashT = 0.045
-    this.audio.play('shot')
+    this.audio.play(w.pellets > 1 ? 'scatter' : 'shot')
+    if (w.pellets > 1) setTimeout(() => this.audio.play('pump'), 260)
     this.world.scene.updateMatrixWorld()
     const origin = this.camera.getWorldPosition(new Vector3())
     const fwd = this.camera.getWorldDirection(new Vector3())
@@ -757,7 +769,11 @@ export class Game {
       ship.traverse((o) => {
         if (o.name === 'jet') o.visible = u < 1 && Math.sin(this.time * 40) > -0.6
       })
-      if (u < 1 && this.frame % 20 === 0) this.audio.play('lifter', ship.position.distanceTo(p.pos) * 0.3, 3)
+      if (u < 1 && this.frame % 20 === 0) this.audio.play('lifter', ship.position.distanceTo(p.pos) * 0.15, 4.6)
+      if (u >= 1 && !this.landed) {
+        this.landed = true
+        this.audio.voice('comms-landed')
+      }
       if (u >= 1 && Math.hypot(p.pos.x - PAD.x, p.pos.z - PAD.z) < PAD_RADIUS) {
         this.finish(true)
         return
@@ -769,7 +785,9 @@ export class Game {
     for (const b of this.bugs) b.update(dt, bctx)
     if (this.frame % 30 === 0) {
       const near = this.bugs.find((b) => b.alive && b.pos.distanceToSquared(p.pos) < 900)
-      if (near) this.audio.play('skitter', near.pos.distanceTo(p.pos), 0.8)
+      if (near) this.audio.play(near.caste.flies && near.pos.y > 3 ? 'wings' : 'skitter', near.pos.distanceTo(p.pos), 1.6)
+      const boss = this.bugs.find((b) => b.alive && b.caste.id === 'augur')
+      if (boss) this.audio.play('augur', boss.pos.distanceTo(p.pos) * 0.3, 9)
     }
     for (let i = this.bugs.length - 1; i >= 0; i--) {
       const b = this.bugs[i] as Bug
@@ -850,7 +868,7 @@ export class Game {
       if (m.y > groundAt(m.x, m.z)) continue
       this.fx.burst(m, ICHOR, 30, 7, undefined, 1, 0.9)
       this.fx.stain(m.x, m.z, ICHOR, 1.8)
-      this.audio.play('hit', m.distanceTo(this.player.pos), 0.05)
+      this.audio.play('splash', m.distanceTo(this.player.pos), 0.05)
       for (const t of targets) {
         const d = Math.hypot(t.pos.x - m.x, t.pos.z - m.z)
         if (t.alive && d < 3.2) t.hurt(g.damage * (1 - (d / 3.2) * 0.6), m)

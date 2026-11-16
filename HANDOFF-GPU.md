@@ -47,8 +47,10 @@ for an open field. Ichor in the game is acid green (`#b6ff3a`).
 
 ## Also for a GPU session
 
-- **Sound by ear** (KB rule 9): all effects, music and voice lines are reused from Stellar Derelict and were made for
-  a ship's corridors. Listen in the game; likely re-rolls are the outdoor gunshot, a grenade blast (the maul sound
-  stands in), the lifter's engines (the purge sound stands in), and bile spit (the vent sound stands in).
-- A first-person weapon model for the Repeater and the Scattergun (both are boxes now).
-- New squad voice lines for a field battle; the reused ones talk about doors and lanes.
+- **Rigged, animated Wardens.** The squad figures are fused miniatures skinned by position in `src/game/wardenRig.ts`
+  (legs and torso only). A figure with a real skeleton and walk, fire and death clips would replace the puppet.
+- **A first-person arms-and-weapon model** for the Repeater and the Scattergun; `src/game/viewModel.ts` builds them
+  from primitives now.
+- **Sound by ear** (KB rule 9): everything was generated with ElevenLabs from text prompts and levelled by script;
+  nobody has listened to it in the game yet. Re-roll one id with `tools/gen-sfx.sh <id>` after deleting nothing: a
+  named id is regenerated in place; then `tools/pack-audio.sh`.
