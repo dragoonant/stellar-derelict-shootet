@@ -1,13 +1,17 @@
 // The squad: the five Warden figures generated for Stellar Derelict, holding posts inside the wall. The figures are
 // fixed-pose miniatures, so a Warden turns and fires from its post rather than walking.
 // KB rule 26: every model is loaded before the mission can start; the stand-in is only for a model that failed.
-import { Box3, BoxGeometry, CylinderGeometry, Group, Mesh, MeshLambertMaterial, SphereGeometry, Vector3, type Object3D } from 'three'
+import { BoxGeometry, CylinderGeometry, Group, Mesh, MeshLambertMaterial, SphereGeometry, Vector3, type Object3D } from 'three'
 import { GLTFLoader } from 'three/examples/jsm/loaders/GLTFLoader.js'
 import { MeshoptDecoder } from 'three/examples/jsm/libs/meshopt_decoder.module.js'
 import { CASTES, type CasteId } from '../sim/castes'
 import bugModels from '../data/bugModels.json'
 import { placeholderRig, rigFromScene, type Rig } from './bugRig'
+import { TEXTURE_NAMES, loadTextures } from './textures'
+import { bakeFigure, puppet, type FigureProto, type Puppet } from './wardenRig'
+import { OUTPOST_HALF, PAD } from './world'
 import type { Bug, Target } from './bugs'
+import { groundAt } from './world'
 
 export interface SquadDef {
   id: string
@@ -35,10 +39,10 @@ export interface ModelProgress {
 
 /** Loads every squad model once; `proto(slug)` hands out a figure standing on y = 0 and facing +z. */
 export class Models {
-  private readonly protos = new Map<string, Object3D>()
+  private readonly protos = new Map<string, FigureProto>()
   private readonly bugProtos = new Map<CasteId, Object3D>()
   private readonly bugList = Object.entries(bugModels.models as Record<string, { file: string; scale?: number } | null>).filter((e) => e[1] !== null) as [CasteId, { file: string; scale?: number }][]
-  readonly progress: ModelProgress = { loaded: 0, total: SQUAD.length + this.bugList.length, failed: [] }
+  readonly progress: ModelProgress = { loaded: 0, total: SQUAD.length + this.bugList.length + TEXTURE_NAMES.length, failed: [] }
   onProgress: (() => void) | null = null
 
   async preload(base: string): Promise<void> {
@@ -61,20 +65,15 @@ export class Models {
       this.onProgress?.()
     })
     await Promise.all([
+      loadTextures(base, () => {
+        this.progress.loaded++
+        this.onProgress?.()
+      }),
       ...bugJobs,
       ...SQUAD.map(async (s) => {
         try {
           const gltf = await loader.loadAsync(`${base}assets/models/${s.model}.glb`)
-          const scene = gltf.scene
-          scene.updateMatrixWorld(true)
-          const box = new Box3().setFromObject(scene)
-          const size = box.getSize(new Vector3())
-          const centre = box.getCenter(new Vector3())
-          scene.position.set(-centre.x, -box.min.y, -centre.z)
-          const fit = new Group()
-          fit.add(scene)
-          fit.scale.setScalar(HEIGHT / (size.y || 1))
-          this.protos.set(s.model, fit)
+          this.protos.set(s.model, bakeFigure(gltf.scene, HEIGHT))
         } catch (e) {
           this.progress.failed.push(s.model)
           console.warn(`Bug Front: model "${s.model}" failed to load (${e instanceof Error ? e.message : String(e)}); using the stand-in figure.`)
@@ -91,9 +90,12 @@ export class Models {
     return proto ? rigFromScene(proto.clone(true), caste) : placeholderRig(caste)
   }
 
-  figure(slug: string): Object3D {
+  /** A walking figure for a squad member, or the stand-in with no moving parts if its model failed to load. */
+  figure(slug: string): { object: Object3D; puppet: Puppet | null } {
     const p = this.protos.get(slug)
-    return p ? p.clone(true) : standIn()
+    if (!p) return { object: standIn(), puppet: null }
+    const pup = puppet(p)
+    return { object: pup.object, puppet: pup }
   }
 }
 
@@ -118,6 +120,8 @@ function standIn(): Object3D {
 
 export interface SquadCtx {
   bugs: Bug[]
+  /** during the extraction the squad runs for the pad */
+  extract: boolean
   /** deal damage to a bug part; `from` is the muzzle */
   shoot(w: Warden, bug: Bug, partId: string, damage: number, from: Vector3, hit: boolean): void
   flame(from: Vector3, dir: Vector3): void
@@ -126,6 +130,9 @@ export interface SquadCtx {
 }
 
 const tmp = new Vector3()
+
+const WALK = 3.8
+const HOLD = OUTPOST_HALF - 3.4
 
 export class Warden implements Target {
   readonly pos = new Vector3()
@@ -139,13 +146,24 @@ export class Warden implements Target {
   private fireT = 1 + Math.random()
   private burst = 0
   private fall = 0
+  private readonly goal = new Vector3()
+  private replan = 0
+  private stride = Math.random() * 6
+  private walking = 0
+  private recoil = 0
+  private pitch = 0
+  readonly figure: Object3D
+  private readonly puppet: Puppet | null
   ctx: SquadCtx | null = null
 
-  constructor(readonly def: SquadDef, readonly figure: Object3D, post: Vector3) {
+  constructor(readonly def: SquadDef, fig: { object: Object3D; puppet: Puppet | null }, private readonly post: Vector3, private readonly slot: number) {
+    this.figure = fig.object
+    this.puppet = fig.puppet
     this.pos.copy(post)
-    figure.position.copy(post)
+    this.goal.copy(post)
+    this.figure.position.copy(post)
     this.yaw = Math.atan2(post.x, post.z)
-    figure.rotation.y = this.yaw
+    this.figure.rotation.y = this.yaw
   }
 
   hurt(amount: number, from: Vector3): void {
@@ -173,12 +191,35 @@ export class Warden implements Target {
     return out.set(this.pos.x + Math.sin(this.yaw) * 0.7, this.pos.y + 1.25, this.pos.z + Math.cos(this.yaw) * 0.7)
   }
 
+  /** Where this Warden wants to stand: at the wall facing the threat, or on the way to the lifter. */
+  private plan(): void {
+    const g = this.goal
+    if (this.ctx?.extract) {
+      // out through the east gate, then the pad
+      if (this.pos.x < OUTPOST_HALF + 1.5 && Math.abs(this.pos.z) > 2) g.set(Math.min(this.pos.x, OUTPOST_HALF - 2.5), 0, (this.slot - 2) * 0.6)
+      else if (this.pos.x < OUTPOST_HALF + 1.5) g.set(OUTPOST_HALF + 3, 0, (this.slot - 2) * 0.6)
+      else g.set(PAD.x - 3 + (this.slot % 2) * 2, 0, PAD.z + (this.slot - 2) * 1.6)
+      return
+    }
+    const b = this.bug
+    if (!b) {
+      g.copy(this.post)
+      return
+    }
+    // a place on the firing line toward the threat, fanned out by slot so the squad does not stack
+    const reach = this.def.weapon === 'scorcher' ? HOLD + 1.6 : HOLD
+    const a = Math.atan2(b.pos.x, b.pos.z) + (this.slot - 2) * 0.3
+    const m = Math.max(Math.abs(Math.sin(a)), Math.abs(Math.cos(a)))
+    g.set((Math.sin(a) / m) * reach, 0, (Math.cos(a) / m) * reach)
+  }
+
   update(dt: number, ctx: SquadCtx): void {
+    this.ctx = ctx
     if (!this.alive) {
       if (this.fall < 1) {
         this.fall = Math.min(1, this.fall + dt * 2.2)
         this.figure.rotation.set((-Math.PI / 2) * this.fall, this.yaw, 0, 'YXZ')
-        this.figure.position.y = 0.35 * this.fall
+        this.figure.position.y = this.pos.y + 0.35 * this.fall
       }
       return
     }
@@ -187,7 +228,7 @@ export class Warden implements Target {
     if (this.retarget <= 0 || !this.bug?.alive) {
       this.retarget = 0.4
       this.bug = null
-      let best = range * range
+      let best = (range + 25) ** 2
       for (const b of ctx.bugs) {
         if (!b.alive) continue
         const d = b.pos.distanceToSquared(this.pos)
@@ -197,15 +238,53 @@ export class Warden implements Target {
         }
       }
     }
+    this.replan -= dt
+    if (this.replan <= 0) {
+      this.replan = ctx.extract ? 0.3 : 2 + Math.random() * 1.5
+      this.plan()
+    }
+    // walk to the goal, round the comms hut
+    let mx = this.goal.x - this.pos.x
+    let mz = this.goal.z - this.pos.z
+    const md = Math.hypot(mx, mz)
+    const moving = md > 0.5
+    if (moving) {
+      mx /= md
+      mz /= md
+      const hd = Math.hypot(this.pos.x, this.pos.z)
+      if (hd < 4.2 && hd > 0.01) {
+        mx += (this.pos.x / hd) * 1.2
+        mz += (this.pos.z / hd) * 1.2
+        const l = Math.hypot(mx, mz) || 1
+        mx /= l
+        mz /= l
+      }
+      const speed = WALK * (ctx.extract ? 1.5 : 1)
+      this.pos.x += mx * speed * dt
+      this.pos.z += mz * speed * dt
+      this.stride += dt * speed * 2.6
+    }
+    this.pos.y = groundAt(this.pos.x, this.pos.z)
+    this.walking += ((moving ? 1 : 0) - this.walking) * Math.min(1, dt * 8)
+
     const b = this.bug
-    if (!b) return
-    let turn = Math.atan2(b.pos.x - this.pos.x, b.pos.z - this.pos.z) - this.yaw
+    const inRange = !!b && b.pos.distanceToSquared(this.pos) < range * range
+    let want = this.yaw
+    if (b && inRange) want = Math.atan2(b.pos.x - this.pos.x, b.pos.z - this.pos.z)
+    else if (moving) want = Math.atan2(mx, mz)
+    let turn = want - this.yaw
     while (turn > Math.PI) turn -= Math.PI * 2
     while (turn < -Math.PI) turn += Math.PI * 2
     this.yaw += turn * Math.min(1, dt * 6)
-    this.figure.rotation.y = this.yaw
+    if (b && inRange) {
+      const up = Math.atan2(b.pos.y + 1 - (this.pos.y + 1.25), Math.hypot(b.pos.x - this.pos.x, b.pos.z - this.pos.z))
+      this.pitch += (Math.max(-0.25, Math.min(0.5, up)) - this.pitch) * Math.min(1, dt * 5)
+    } else this.pitch *= 1 - Math.min(1, dt * 4)
+    this.recoil = Math.max(0, this.recoil - dt * 7)
+    this.pose()
+
     this.fireT -= dt
-    if (this.fireT > 0 || Math.abs(turn) > 0.35) return
+    if (!b || !inRange || this.fireT > 0 || Math.abs(turn) > 0.35) return
     const from = this.muzzle(tmp)
     if (this.def.weapon === 'scorcher') {
       this.fireT = 0.12
@@ -213,6 +292,7 @@ export class Warden implements Target {
       const at = b.partPoint(part, new Vector3())
       ctx.flame(from, at.clone().sub(from).normalize())
       ctx.shoot(this, b, part, 7, from, true)
+      this.recoil = 0.3
       return
     }
     const pistol = this.def.weapon === 'pistol'
@@ -222,8 +302,23 @@ export class Warden implements Target {
       this.burst = 0
       this.fireT = 0.7 + Math.random() * 0.7
     }
-    const odds = b.caste.flies && b.pos.y > this.pos.y + 3 ? 0.3 : 0.55
+    this.recoil = 1
+    const odds = (b.caste.flies && b.pos.y > this.pos.y + 3 ? 0.3 : 0.55) * (moving ? 0.7 : 1)
     ctx.shoot(this, b, pickPart(b), pistol ? 14 : 9, from, Math.random() < odds)
+  }
+
+  private pose(): void {
+    const s = Math.sin(this.stride)
+    const swing = s * 0.55 * this.walking
+    // a swung leg is shorter top to bottom: sink by that much so the planted boot stays on the ground
+    const sink = (this.puppet ? 0.76 : 0) * (1 - Math.cos(swing))
+    this.figure.position.set(this.pos.x, this.pos.y - sink, this.pos.z)
+    this.figure.rotation.set(0, this.yaw, 0)
+    const p = this.puppet
+    if (!p) return
+    p.legL.rotation.x = -swing
+    p.legR.rotation.x = swing
+    p.torso.rotation.set(-this.pitch - this.recoil * 0.05 + 0.06 * this.walking, s * 0.08 * this.walking, Math.cos(this.stride) * 0.04 * this.walking)
   }
 }
 

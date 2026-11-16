@@ -3,6 +3,7 @@ import {
   BoxGeometry, CircleGeometry, Color, ConeGeometry, CylinderGeometry, DirectionalLight, DodecahedronGeometry, Float32BufferAttribute, Fog,
   Group, HemisphereLight, Mesh, MeshBasicMaterial, MeshLambertMaterial, PlaneGeometry, RingGeometry, Scene, SphereGeometry, TorusGeometry, Vector3,
 } from 'three'
+import { tiled } from './textures'
 
 export const ARENA_RADIUS = 86
 export const OUTPOST_HALF = 13
@@ -47,6 +48,8 @@ export interface World {
   posts: Vector3[]
   dropship: Group
   update(t: number): void
+  /** put the loaded textures on the ground, rocks, walls and sky */
+  applyTextures(): void
 }
 
 const SAND = 0xa2583a
@@ -81,7 +84,8 @@ export function buildWorld(): World {
   }
   geo.setAttribute('color', new Float32BufferAttribute(cols, 3))
   geo.computeVertexNormals()
-  scene.add(new Mesh(geo, new MeshLambertMaterial({ vertexColors: true })))
+  const groundMat = new MeshLambertMaterial({ vertexColors: true })
+  scene.add(new Mesh(geo, groundMat))
 
   // mesas on the rim
   const rock = lam(0x6e3524, { flatShading: true })
@@ -224,6 +228,43 @@ export function buildWorld(): World {
     blockers,
     posts,
     dropship,
+    applyTextures() {
+      const g = tiled('ground', 64)
+      if (g) {
+        groundMat.map = g
+        // the texture carries the colour now: keep the vertex colours only as light and dark patches
+        const col = geo.getAttribute('color')
+        for (let i = 0; i < col.count; i++) {
+          const l = 0.75 + 0.9 * (col.getX(i) - 0.48)
+          col.setXYZ(i, l * 1.08, l, l * 0.94)
+        }
+        col.needsUpdate = true
+        groundMat.needsUpdate = true
+      }
+      const r = tiled('rock', 2)
+      if (r) {
+        rock.map = r
+        rock.color.set(0xb98a78)
+        rock.needsUpdate = true
+      }
+      const m = tiled('metal', 2, 1)
+      if (m) {
+        steel.map = m
+        steel.color.set(0xc8cdbd)
+        steel.needsUpdate = true
+      }
+      const sk = tiled('sky', 2, 1)
+      if (sk) {
+        const dome = new Mesh(new SphereGeometry(700, 32, 16, 0, Math.PI * 2, 0, Math.PI * 0.62), new MeshBasicMaterial({ map: sk, side: 1, fog: false, depthWrite: false }))
+        dome.renderOrder = -1
+        dome.position.y = -60
+        scene.add(dome)
+        moon.visible = false // the painted sky has its own
+        const horizon = new Color(0xd28a5c)
+        scene.background = horizon
+        ;(scene.fog as Fog).color.copy(horizon)
+      }
+    },
     update(t) {
       beacon.visible = Math.sin(t * 4) > 0
       padGlow.scale.setScalar(1 + 0.15 * Math.sin(t * 3))

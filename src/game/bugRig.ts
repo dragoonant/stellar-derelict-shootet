@@ -7,6 +7,7 @@ import {
   type Material, type Object3D,
 } from 'three'
 import { CASTES, type CasteId, type PartKind } from '../sim/castes'
+import { TEX } from './textures'
 
 export interface Rig {
   root: Group
@@ -35,12 +36,16 @@ interface Mats {
 }
 
 function mats(): Mats {
+  // with a texture the image carries the colour and the material colour only tints it
+  const chitin = TEX.chitin ?? null
+  const shell = TEX.shell ?? null
+  const flesh = TEX.flesh ?? null
   return {
-    chitin: new MeshLambertMaterial({ color: CHITIN }),
-    dark: new MeshLambertMaterial({ color: CHITIN_DARK }),
-    shell: new MeshLambertMaterial({ color: SHELL, side: DoubleSide }),
+    chitin: new MeshLambertMaterial({ color: chitin ? 0xe8b0a0 : CHITIN, map: chitin }),
+    dark: new MeshLambertMaterial({ color: chitin ? 0x6a4a48 : CHITIN_DARK, map: chitin }),
+    shell: new MeshLambertMaterial({ color: shell ? 0xe6d8c0 : SHELL, map: shell, side: DoubleSide }),
     glow: new MeshLambertMaterial({ color: BILE, emissive: BILE, emissiveIntensity: 0.9 }),
-    flesh: new MeshLambertMaterial({ color: 0x9a6f6a, emissive: 0x3a1616, emissiveIntensity: 0.6 }),
+    flesh: new MeshLambertMaterial({ color: flesh ? 0xd9a09a : 0x9a6f6a, map: flesh, emissive: 0x3a1616, emissiveIntensity: 0.5 }),
     wing: new MeshLambertMaterial({ color: 0xd8b98f, side: DoubleSide, transparent: true, opacity: 0.8 }),
   }
 }

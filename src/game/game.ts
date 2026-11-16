@@ -1,5 +1,5 @@
 // The game: the player, the weapons, the waves, the extraction. It owns the scene and asks the sim for every rule.
-import { BoxGeometry, CylinderGeometry, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PerspectiveCamera, Raycaster, SphereGeometry, Vector3, WebGLRenderer } from 'three'
+import { BoxGeometry, CircleGeometry, CylinderGeometry, Group, Mesh, MeshBasicMaterial, MeshLambertMaterial, PerspectiveCamera, Raycaster, SphereGeometry, Vector3, WebGLRenderer } from 'three'
 import { CASTES, type CasteId } from '../sim/castes'
 import { abilities, applyDamage, blastCoreShare, partDef, partReadout } from '../sim/damage'
 import { clearSave, readSave, writeSave, type SaveData, SAVE_VERSION } from '../sim/save'
@@ -9,7 +9,9 @@ import { Bug, type BugCtx, type Target } from './bugs'
 import { ICHOR, disposeObject } from './bugRig'
 import { Fx } from './fx'
 import { Hud, type RadarDot } from './hud'
+import { buildRepeater, buildScattergun, viewMaterials, type ViewMaterials, type ViewWeapon } from './viewModel'
 import { Input, type Actions } from './input'
+import { tiled } from './textures'
 import { Models, SQUAD, WARDEN_HP, Warden, type SquadCtx } from './squad'
 import { ARENA_RADIUS, BURROWS, PAD, PAD_RADIUS, buildWorld, groundAt, type World } from './world'
 
@@ -36,6 +38,8 @@ const G = 22
 const EYE = 1.7
 const BLAST_RADIUS = 7
 const BLAST_DAMAGE = 150
+const SHADOW_GEO = new CircleGeometry(1, 20)
+const SHADOW_MAT = new MeshBasicMaterial({ color: 0x1a0a06, transparent: true, opacity: 0.42, depthWrite: false })
 /** the suit reseals itself up to this much, after a quiet spell */
 const REGEN_TO = 60
 const REGEN_DELAY = 5
@@ -114,6 +118,10 @@ export class Game {
   private readonly guns: Group[] = []
   private readonly muzzleFlash: Mesh
   private flashT = 0
+  private readonly view: ViewWeapon[] = []
+  viewMats: ViewMaterials | null = null
+  private pumpT = 0
+  private readonly shadows = new Map<object, Mesh>()
 
   constructor(canvas: HTMLCanvasElement, ui: HTMLElement, base: string) {
     this.renderer = new WebGLRenderer({ canvas, antialias: true, powerPreference: 'high-performance' })
@@ -127,7 +135,7 @@ export class Game {
       if (this.mode === 'playing') this.setMode('paused')
     }
     this.world.scene.add(this.camera)
-    this.muzzleFlash = new Mesh(new SphereGeometry(0.09, 6, 5), new MeshBasicMaterial({ color: 0xffd98a }))
+    this.muzzleFlash = new Mesh(new SphereGeometry(0.06, 6, 5), new MeshBasicMaterial({ color: 0xffd98a }))
     this.muzzleFlash.visible = false
     this.buildGuns()
     window.addEventListener('resize', () => this.resize())
@@ -154,39 +162,17 @@ export class Game {
   }
 
   private buildGuns(): void {
-    const steel = new MeshLambertMaterial({ color: 0x3d4438 })
-    const dark = new MeshLambertMaterial({ color: 0x1c1f1a })
-    const bone = new MeshLambertMaterial({ color: 0xcfc8b6 })
-    const rep = new Group()
-    const body = new Mesh(new BoxGeometry(0.11, 0.14, 0.62), steel)
-    const shroud = new Mesh(new BoxGeometry(0.13, 0.1, 0.3), bone)
-    shroud.position.set(0, 0.02, -0.38)
-    for (const s of [-1, 1]) {
-      const barrel = new Mesh(new CylinderGeometry(0.018, 0.018, 0.5, 6), dark)
-      barrel.rotation.x = Math.PI / 2
-      barrel.position.set(s * 0.03, 0.02, -0.6)
-      rep.add(barrel)
+    const mats = viewMaterials()
+    this.viewMats = mats
+    for (const w of [buildRepeater(mats), buildScattergun(mats)]) {
+      w.group.rotation.y = 0.07
+      w.group.scale.setScalar(0.85)
+      this.camera.add(w.group)
+      this.guns.push(w.group)
+      this.view.push(w)
     }
-    const magz = new Mesh(new BoxGeometry(0.07, 0.2, 0.1), dark)
-    magz.position.set(0, -0.15, -0.05)
-    rep.add(body, shroud, magz)
-    const sc = new Group()
-    const sbody = new Mesh(new BoxGeometry(0.1, 0.12, 0.5), steel)
-    const tube = new Mesh(new CylinderGeometry(0.045, 0.045, 0.7, 8), dark)
-    tube.rotation.x = Math.PI / 2
-    tube.position.set(0, 0.03, -0.5)
-    const pump = new Mesh(new BoxGeometry(0.12, 0.08, 0.2), bone)
-    pump.position.set(0, -0.04, -0.4)
-    sc.add(sbody, tube, pump)
-    for (const g of [rep, sc]) {
-      g.scale.setScalar(0.62)
-      g.position.set(0.2, -0.2, -0.6)
-      this.camera.add(g)
-      this.guns.push(g)
-    }
-    sc.visible = false
-    this.muzzleFlash.position.set(0.2, -0.185, -1.12)
     this.camera.add(this.muzzleFlash)
+    this.showGun()
   }
 
   // ---------- modes ----------
@@ -203,6 +189,7 @@ export class Game {
     for (const w of this.wardens) this.world.scene.remove(w.figure)
     for (const g of this.globs) this.world.scene.remove(g.mesh)
     for (const g of this.grenades) this.world.scene.remove(g.mesh)
+    for (const k of [...this.shadows.keys()]) this.dropShadow(k)
     this.bugs = []
     this.globs = []
     this.grenades = []
@@ -227,7 +214,7 @@ export class Game {
     this.showGun()
     const sctx = this.squadCtx()
     this.wardens = SQUAD.map((def, i) => {
-      const w = new Warden(def, this.models.figure(def.model), this.world.posts[i] as Vector3)
+      const w = new Warden(def, this.models.figure(def.model), this.world.posts[i] as Vector3, i)
       w.ctx = sctx
       this.world.scene.add(w.figure)
       if (save) w.restore(save.squad[def.id] ?? 0)
@@ -394,6 +381,7 @@ export class Game {
     const at = new Vector3()
     return {
       bugs: this.bugs,
+      extract: this.phase === 'extract',
       shoot: (w, bug, part, damage, from, hit) => {
         bug.partPoint(part, at)
         dir.copy(at).sub(from).normalize()
@@ -464,8 +452,36 @@ export class Game {
 
   // ---------- weapons ----------
 
+  /** Once the textures are in: the field, and the armour plates of the first-person arms. */
+  applyTextures(): void {
+    this.world.applyTextures()
+    const plate = tiled('plate', 1)
+    if (plate && this.viewMats) {
+      this.viewMats.plate.map = plate
+      this.viewMats.plate.color.set(0xf2ead8)
+      this.viewMats.plate.needsUpdate = true
+    }
+  }
+
   private showGun(): void {
     this.guns.forEach((g, i) => (g.visible = i === this.weapon))
+  }
+
+  private shadowFor(key: object, radius: number): Mesh {
+    let m = this.shadows.get(key)
+    if (!m) {
+      m = new Mesh(SHADOW_GEO, SHADOW_MAT)
+      m.rotation.x = -Math.PI / 2
+      m.scale.setScalar(radius)
+      this.world.scene.add(m)
+      this.shadows.set(key, m)
+    }
+    return m
+  }
+  private dropShadow(key: object): void {
+    const m = this.shadows.get(key)
+    if (m) this.world.scene.remove(m)
+    this.shadows.delete(key)
   }
 
   private swap(to?: number): void {
@@ -524,6 +540,7 @@ export class Game {
     a.mag--
     this.fireT = w.rate
     this.kick = Math.min(1, this.kick + (w.pellets > 1 ? 1 : 0.35))
+    if (w.pellets > 1) this.pumpT = 0.55
     this.flashT = 0.045
     this.audio.play('shot')
     this.world.scene.updateMatrixWorld()
@@ -673,8 +690,15 @@ export class Game {
     this.camera.position.set(p.pos.x, p.pos.y + EYE + Math.sin(this.bob) * 0.04, p.pos.z)
     this.camera.rotation.set(p.pitch + this.kick * 0.02, p.yaw, 0, 'YXZ')
     const gun = this.guns[this.weapon] as Group
-    gun.position.set(0.2 + Math.cos(this.bob * 0.5) * 0.006, -0.2 + Math.sin(this.bob) * 0.006 - (this.reloadT > 0 ? 0.1 : 0), -0.6 + this.kick * 0.05)
-    gun.rotation.x = this.kick * 0.1 - (this.reloadT > 0 ? 0.5 : 0)
+    const vw = this.view[this.weapon] as ViewWeapon
+    const down = this.reloadT > 0 ? Math.min(1, Math.min(this.reloadT, (WEAPONS[this.weapon] as WeaponDef).reload - this.reloadT) * 5) : 0
+    const sway = Math.hypot(this.vel.x, this.vel.z) > 1 ? 1 : 0.25
+    gun.position.set(0.2 + Math.cos(this.bob * 0.5) * 0.008 * sway, -0.23 + Math.sin(this.bob) * 0.008 * sway - down * 0.16, -0.5 + this.kick * 0.045)
+    gun.rotation.set(this.kick * 0.07 - down * 0.7, 0.07, down * 0.25)
+    this.pumpT = Math.max(0, this.pumpT - dt)
+    if (vw.action) vw.action.position.z = Math.sin(Math.min(1, this.pumpT / 0.4) * Math.PI) * 0.1
+    gun.updateMatrixWorld()
+    this.camera.worldToLocal(gun.localToWorld(this.muzzleFlash.position.copy(vw.muzzle)))
 
     this.quietT += dt
     if (this.quietT > REGEN_DELAY && p.hp < REGEN_TO) p.hp = Math.min(REGEN_TO, p.hp + REGEN_RATE * dt)
@@ -751,11 +775,21 @@ export class Game {
       const b = this.bugs[i] as Bug
       if (!b.removed) continue
       this.world.scene.remove(b.rig.root)
+      this.dropShadow(b)
       disposeObject(b.rig.root)
       this.bugs.splice(i, 1)
     }
     const sctx = this.squadCtx()
-    for (const w of this.wardens) w.update(dt, sctx)
+    for (const w of this.wardens) {
+      w.update(dt, sctx)
+      this.shadowFor(w, 0.75).position.set(w.pos.x, groundAt(w.pos.x, w.pos.z) + 0.035, w.pos.z)
+    }
+    for (const b of this.bugs) {
+      const sh = this.shadowFor(b, b.caste.radius * 1.15)
+      const gy = groundAt(b.pos.x, b.pos.z)
+      sh.position.set(b.pos.x, gy + 0.03, b.pos.z)
+      sh.visible = b.deadFor < 8 && b.pos.y > gy - 0.8
+    }
     this.projectiles(dt)
     this.world.update(this.time)
     this.drawHud(dt, aliveBugs)
@@ -922,7 +956,10 @@ export class Game {
     return true
   }
   skipToWave(i: number): void {
-    for (const b of this.bugs) this.world.scene.remove(b.rig.root)
+    for (const b of this.bugs) {
+      this.world.scene.remove(b.rig.root)
+      this.dropShadow(b)
+    }
     this.bugs.length = 0
     this.queue = []
     this.intermission(Math.max(0, Math.min(WAVES.length - 1, i)), true)

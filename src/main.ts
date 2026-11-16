@@ -70,13 +70,14 @@ function paintLoading(): void {
   const btns = [$<HTMLButtonElement>('btn-new'), $<HTMLButtonElement>('btn-continue')]
   for (const b of btns) b.disabled = !modelsReady
   $('loading').textContent = !modelsReady
-    ? `Loading models ${p.loaded}/${p.total}`
+    ? `Loading models and textures ${p.loaded}/${p.total}`
     : p.failed.length > 0
       ? `${p.failed.length} of ${p.total} squad models failed to load; those Wardens use a stand-in figure.`
       : `Squad ready: ${SQUAD.map((s) => s.name).join(', ')}. ${WAVES.length} waves, then the lifter.`
 }
 game.models.onProgress = paintLoading
 void game.models.preload(base).then(() => {
+  game.applyTextures()
   modelsReady = true
   paintLoading()
 })

@@ -132,3 +132,12 @@ button:disabled { opacity: 0.5; cursor: default; }
   #squad { font-size: 10px; } #squad .n { width: 78px; white-space: nowrap; } #squad .bar { width: 44px; }
   #banner { top: 16%; } .bar.big { width: 130px; } #hp { font-size: 20px; } #rounds { font-size: 28px; }
 }
+
+/* the bulletin's poster (Flux): beside the text on a wide screen, a band behind the headline on a narrow one */
+.sheet.wide { width: min(980px, 100%); padding-right: 360px; min-height: 440px; }
+#poster { position: absolute; right: 0; top: 14px; bottom: 0; width: 336px; height: calc(100% - 14px); object-fit: cover; border-left: 2px solid var(--ink); }
+@media (max-width: 900px) {
+  .sheet.wide { padding-right: 16px; min-height: 0; }
+  #poster { position: static; width: 100%; height: 150px; border-left: 0; border-bottom: 2px solid var(--ink); margin-bottom: 8px; object-position: 50% 42%; }
+}
+@media (max-width: 900px) and (max-height: 480px) { #poster { height: 84px; } }
