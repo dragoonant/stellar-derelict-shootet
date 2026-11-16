@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover" />
+    <meta name="theme-color" content="#1b1f17" />
+    <title>Stellar Derelict: Bug Front</title>
+    <script type="module" crossorigin src="./assets/index-Ccu4HmV7.js"></script>
+    <link rel="stylesheet" crossorigin href="./assets/index-BMyNLqx9.css">
+  </head>
+  <body>
+    <canvas id="view"></canvas>
+    <div id="ui">
+      <div id="hud" hidden>
+        <div id="vignette"></div>
+        <div id="crosshair"><i></i><i></i><i></i><i></i><b id="hitmark"></b></div>
+        <div id="target" hidden>
+          <div id="target-name"></div>
+          <div class="bar"><span id="target-bar"></span></div>
+          <div id="target-hp"></div>
+        </div>
+        <div id="top">
+          <div id="wave"></div>
+          <div id="count"></div>
+          <div id="score"></div>
+        </div>
+        <div id="objective"></div>
+        <div id="banner" hidden><h2 id="banner-title"></h2><p id="banner-brief"></p></div>
+        <div id="feed"></div>
+        <div id="squad"></div>
+        <canvas id="radar" width="132" height="132"></canvas>
+        <div id="vitals">
+          <div class="label">SUIT</div>
+          <div class="bar big"><span id="hp-bar"></span></div>
+          <div id="hp"></div>
+        </div>
+        <div id="ammo">
+          <div id="weapon"></div>
+          <div id="rounds"></div>
+          <div id="grenades"></div>
+        </div>
+        <div id="notice" hidden></div>
+        <div id="touch" hidden>
+          <div id="stick"><div id="stick-nub"></div></div>
+          <button class="tb" id="tb-fire" data-act="fire">FIRE</button>
+          <button class="tb" id="tb-reload" data-act="reload">RELOAD</button>
+          <button class="tb" id="tb-swap" data-act="swap">SWAP</button>
+          <button class="tb" id="tb-grenade" data-act="grenade">NADE</button>
+          <button class="tb" id="tb-jump" data-act="jump">JUMP</button>
+          <button class="tb" id="tb-pause" data-act="pause">II</button>
+        </div>
+      </div>
+
+      <section id="title" class="screen">
+        <div class="sheet wide">
+          <div class="stripe"></div>
+          <img id="poster" src="./assets/tex/poster.jpg" alt="" />
+          <p class="kicker">WARDEN SERVICE FIELD BULLETIN No. 7 &nbsp;/&nbsp; OUTPOST KESSEL</p>
+          <h1><small>STELLAR DERELICT</small>BUG FRONT</h1>
+          <p class="lede">The Molt come up out of the ground. Send them back in pieces: every scythe, leg, wing, tail and head comes off where you shoot it.</p>
+          <div id="continue-box" hidden>
+            <button id="btn-continue" class="primary">CONTINUE</button>
+            <p id="continue-text"></p>
+          </div>
+          <div id="save-error" hidden>
+            <p id="save-error-text"></p>
+            <button id="btn-discard">DISCARD THE SAVE</button>
+          </div>
+          <div class="row" id="difficulty"></div>
+          <div class="row">
+            <button id="btn-new" class="primary">NEW DEPLOYMENT</button>
+            <button id="btn-how">HOW TO FIGHT</button>
+          </div>
+          <p id="loading"></p>
+          <div id="how" hidden>
+            <div class="cols">
+              <div>
+                <h3>Keyboard and mouse</h3>
+                <p>WASD move, mouse aims, left button fires, right button or G throws a grenade, R reloads, Q or the wheel or 1 and 2 change weapon, Shift sprints, Space jumps, P or Esc pauses, M mutes.</p>
+                <h3>Phone or tablet</h3>
+                <p>Left thumb moves (push far to sprint). Drag anywhere on the right to aim; the FIRE button also aims while you hold it. Play in landscape.</p>
+                <h3>Saving</h3>
+                <p>The game saves at the start of every wave and when a wave is cleared. Continue returns you to the start of that wave. The save lives in this browser at this address; another browser or address has its own.</p>
+              </div>
+              <div>
+                <h3>Know your Molt</h3>
+                <div id="guide"></div>
+              </div>
+            </div>
+          </div>
+          <p class="foot">An original game by evilgouki. Warden figures from Stellar Derelict; textures and poster by Flux; effects, voices and music by ElevenLabs. The Molt are stand-in rigs until segmented models are generated. Sound not yet verified by ear.</p>
+        </div>
+      </section>
+
+      <section id="pause" class="screen" hidden>
+        <div class="sheet small">
+          <div class="stripe"></div>
+          <h2>HOLD</h2>
+          <p>The field is paused.</p>
+          <div class="row">
+            <button id="btn-resume" class="primary">RESUME</button>
+            <button id="btn-mute"></button>
+            <button id="btn-quit">STAND DOWN</button>
+          </div>
+          <p class="foot">Standing down returns to the bulletin. Your save is the start of this wave.</p>
+        </div>
+      </section>
+
+      <section id="end" class="screen" hidden>
+        <div class="sheet small">
+          <div class="stripe"></div>
+          <h2 id="end-title"></h2>
+          <p id="end-text"></p>
+          <p id="end-stats"></p>
+          <div class="row">
+            <button id="btn-retry" class="primary"></button>
+            <button id="btn-title">BACK TO THE BULLETIN</button>
+          </div>
+        </div>
+      </section>
+
+      <section id="confirm" class="screen" hidden>
+        <div class="sheet small">
+          <div class="stripe"></div>
+          <h2>REPLACE THE SAVE?</h2>
+          <p id="confirm-text"></p>
+          <div class="row">
+            <button id="btn-confirm-yes" class="primary">START OVER</button>
+            <button id="btn-confirm-no">KEEP IT</button>
+          </div>
+        </div>
+      </section>
+    </div>
+  </body>
+</html>
